@@ -1,0 +1,63 @@
+name: Verify and publish linkding
+on:
+  workflow_dispatch:
+permissions:
+  contents: write
+  pull-requests: write
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Generate temporary test password
+        run: |
+          value=$(openssl rand -hex 24)
+          echo "::add-mask::$value"
+          echo "LD_SUPERUSER_PASSWORD=$value" >> "$GITHUB_ENV"
+      - name: Start exact upstream image and persistent volume
+        run: |
+          set -euo pipefail
+          docker volume create linkding-smoke
+          docker run --detach --name linkding --publish 127.0.0.1:19090:9090 --env LD_SUPERUSER_NAME=smokeuser --env LD_SUPERUSER_PASSWORD --env LD_SERVER_HOST=0.0.0.0 --env HOST_NAME=127.0.0.1 --env LD_CSRF_TRUSTED_ORIGINS=http://127.0.0.1:19090 --mount type=volume,source=linkding-smoke,target=/etc/linkding/data sissbruecker/linkding:1.47.0@sha256:e35cb50e0581178f245125ffaa909c565416c94c9f22ace305a7d234a4345522
+      - name: Verify health and authenticated browser login
+        run: |
+          set -euo pipefail
+          curl --fail --silent --show-error --retry 30 --retry-all-errors --retry-delay 2 --max-time 10 http://127.0.0.1:19090/health
+          test "$(curl --silent --output /dev/null --write-out '%{http_code}' http://127.0.0.1:19090/)" = 302
+          curl --fail --silent --show-error --cookie-jar cookies.txt http://127.0.0.1:19090/login/ -o login.html
+          grep -q 'id="id_username"' login.html
+          grep -q 'id="id_password"' login.html
+          csrf=$(sed -n 's/.*name="csrfmiddlewaretoken" value="\([^"]*\)".*/\1/p' login.html | head -1)
+          test -n "$csrf"
+          status=$(curl --silent --show-error --output /dev/null --write-out '%{http_code}' --cookie cookies.txt --cookie-jar cookies.txt --data-urlencode "csrfmiddlewaretoken=$csrf" --data-urlencode username=smokeuser --data-urlencode "password=$LD_SUPERUSER_PASSWORD" --data-urlencode next=/ http://127.0.0.1:19090/login/)
+          test "$status" = 302
+          curl --fail --silent --show-error --cookie cookies.txt http://127.0.0.1:19090/ -o home.html
+          if grep -q 'id="id_password"' home.html; then exit 1; fi
+      - name: Create bookmark and verify persistence across restart
+        run: |
+          set -euo pipefail
+          csrf=$(awk '$6 == "csrftoken" {print $7}' cookies.txt | tail -1)
+          test -n "$csrf"
+          printf '{"url":"https://example.com","title":"LazyCat smoke bookmark"}' > bookmark.json
+          curl --fail-with-body --silent --show-error --cookie cookies.txt --header "X-CSRFToken: $csrf" --header 'Content-Type: application/json' --request POST --data-binary @bookmark.json http://127.0.0.1:19090/api/bookmarks/ -o bookmark-response.json
+          jq -e '.title == "LazyCat smoke bookmark"' bookmark-response.json
+          docker restart linkding
+          curl --fail --silent --show-error --retry 30 --retry-all-errors --retry-delay 2 --max-time 10 http://127.0.0.1:19090/health
+          curl --fail-with-body --silent --show-error --cookie cookies.txt http://127.0.0.1:19090/api/bookmarks/ -o bookmarks.json
+          jq -e 'any(.results[]; .title == "LazyCat smoke bookmark")' bookmarks.json
+          echo 'Login, authenticated bookmark API and restart persistence verified.'
+      - name: Remove temporary resources
+        if: always()
+        run: |
+          docker rm -f linkding || true
+          docker volume rm linkding-smoke || true
+  lazycat:
+    needs: smoke
+    uses: ca-x/lazycat-github-action/.github/workflows/lazycat.yml@v1
+    with:
+      operation: auto
+      config: .github/lazycat-action.yml
+      versioned-release-asset: true
+    secrets:
+      APPSTORE_URL: ${{ secrets.APPSTORE_URL }}
+      APPSTORE_TOKEN: ${{ secrets.APPSTORE_TOKEN }}
+      PRIVATE_STORE_GROUP_CODES: ${{ secrets.PRIVATE_STORE_GROUP_CODES }}

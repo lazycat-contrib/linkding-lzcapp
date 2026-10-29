@@ -1,0 +1,18 @@
+package: community.lazycat.app.linkding
+version: 1.47.0
+name: linkding
+description: Self-hosted bookmark manager with tags, search and a clean web interface.
+min_os_version: "1.5.0"
+homepage: https://github.com/sissbruecker/linkding
+author: sissbruecker
+license: MIT
+permissions:
+  required:
+    - net.internet
+locales:
+  zh:
+    name: linkding
+    description: 自托管书签管理器，支持标签、搜索、导入导出和简洁的网页界面。
+  en:
+    name: linkding
+    description: Self-hosted bookmark manager with tags, search and a clean web interface.

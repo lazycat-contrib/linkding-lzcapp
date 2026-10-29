@@ -1,0 +1,38 @@
+version: 1
+project:
+  root: .
+  build_config: lzc-build.yml
+  package_file: package.yml
+  output: dist/application.lpk
+  target_arch: amd64
+update:
+  strategy: publish
+  allow_downgrade: false
+  version_source:
+    type: image
+    image: linkding
+build:
+  toolchains: []
+  run_buildscript: false
+images:
+  - id: linkding
+    target: service
+    service: linkding
+    source: docker.io/sissbruecker/linkding
+    channel: stable
+    sort: semver
+    tag_regex: '^\d+\.\d+\.\d+$'
+    delivery:
+      mode: mirror
+      require_digest_match: true
+release:
+  use_github_release_notes: true
+  store_changelog_format: plain
+stores:
+  official:
+    enabled: false
+  private:
+    enabled: false
+    skip_if_version_exists: true
+    name: linkding
+    summary: 带标签和搜索的自托管书签管理器

@@ -1,0 +1,8 @@
+dist/
+*.lpk
+cookies.txt
+login.html
+home.html
+bookmark.json
+bookmark-response.json
+bookmarks.json

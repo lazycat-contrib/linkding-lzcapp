@@ -1,0 +1,38 @@
+application:
+  subdomain: linkding
+  multi_instance: false
+  upstreams:
+    - location: /
+      backend: http://linkding:9090/
+  injects:
+    - id: login-autofill
+      on: browser
+      when:
+        - /login/
+      do:
+        - src: builtin://simple-inject-password
+          params:
+            user: {{ .U.admin_user | quote }}
+            password: {{ .U.admin_password | quote }}
+            userSelector: "#id_username"
+            passwordSelector: "#id_password"
+            submitSelector: "input[type='submit']"
+services:
+  linkding:
+    # upstream: docker.io/sissbruecker/linkding:1.47.0
+    image: docker.1ms.run/sissbruecker/linkding:1.47.0
+    environment:
+      - {{ printf "LD_SUPERUSER_NAME=%s" .U.admin_user | quote }}
+      - {{ printf "LD_SUPERUSER_PASSWORD=%s" .U.admin_password | quote }}
+      - LD_SERVER_HOST=0.0.0.0
+      - HOST_NAME={{ .S.AppDomain }}
+      - LD_CSRF_TRUSTED_ORIGINS=https://{{ .S.AppDomain }}
+      - LD_USE_X_FORWARDED_HOST=true
+    binds:
+      - /lzcapp/var/data:/etc/linkding/data
+usage: |
+  linkding 是书签管理器。首次启动由部署参数初始化管理员，登录页会自动填入部署凭据。
+  数据库、密钥和附件保存在应用内部数据目录，升级继续复用，不会覆盖已有账号密码。
+  如果在网页中改了密码，请同时更新部署参数里的密码，让自动填充保持一致。
+  本包保留懒猫入口登录保护，无文件选择器拦截；多用户共用此实例，可在管理后台添加账号。
+  浏览器扩展或外部 API 客户端还需要满足懒猫入口鉴权，不能仅凭 linkding API token 绕过。

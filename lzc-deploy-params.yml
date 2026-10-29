@@ -1,0 +1,21 @@
+params:
+  - id: admin_user
+    type: string
+    name: Initial admin username
+    description: Used to initialize the administrator on the first startup.
+    default_value: lazycat
+    optional: false
+  - id: admin_password
+    type: secret
+    name: Initial admin password
+    description: Random initial password. Keep this synchronized if the account password is changed in the web UI.
+    default_value: "$random(len=24)"
+    optional: false
+locales:
+  zh:
+    admin_user:
+      name: 初始管理员用户名
+      description: 首次启动时创建的管理员，后续启动不会覆盖已有账号。
+    admin_password:
+      name: 初始管理员密码
+      description: 建议保留随机密码；网页改密后请同步更新这里，供登录页自动填充使用。
