@@ -12,8 +12,10 @@ application:
       do:
         - src: builtin://simple-inject-password
           params:
-            user: {{ .U.admin_user | quote }}
-            password: {{ .U.admin_password | quote }}
+            user: |-
+              {{ .U.admin_user | replace "\r" "" | replace "\n" "\n              " }}
+            password: |-
+              {{ .U.admin_password | replace "\r" "" | replace "\n" "\n              " }}
             userSelector: "#id_username"
             passwordSelector: "#id_password"
             submitSelector: "input[type='submit']"
@@ -22,8 +24,10 @@ services:
     # upstream: docker.io/sissbruecker/linkding:1.47.0
     image: docker.1ms.run/sissbruecker/linkding:1.47.0
     environment:
-      - {{ printf "LD_SUPERUSER_NAME=%s" .U.admin_user | quote }}
-      - {{ printf "LD_SUPERUSER_PASSWORD=%s" .U.admin_password | quote }}
+      - |-
+        LD_SUPERUSER_NAME={{ .U.admin_user | replace "\r" "" | replace "\n" "\n        " }}
+      - |-
+        LD_SUPERUSER_PASSWORD={{ .U.admin_password | replace "\r" "" | replace "\n" "\n        " }}
       - LD_SERVER_HOST=0.0.0.0
       - HOST_NAME={{ .S.AppDomain }}
       - LD_CSRF_TRUSTED_ORIGINS=https://{{ .S.AppDomain }}
